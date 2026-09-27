@@ -1357,6 +1357,18 @@ static void ExportKernelBootProps() {
     }
 }
 
+// IchthysOS: override bootloader properties that reveal an unlocked bootloader.
+// Samsung's bootloader sets verifiedbootstate=orange and warranty_bit=1 on unlocked
+// devices. DroidGuard reads these at the native level via __system_property_get() and
+// fails DEVICE integrity if they don't look like a locked production device.
+// The setprop approach in init.rc does not work because ro.* properties are read-only
+// once set -- we must intercept them here, before the first InitPropertySet() call.
+static std::string IchthysOverrideBootProp(const std::string& prop, const std::string& value) {
+    if (prop == "verifiedbootstate" && value == "orange") return "green";
+    if (prop == "warranty_bit" && value == "1") return "0";
+    return value;
+}
+
 static void ProcessKernelDt() {
     if (!is_android_dt_value_expected("compatible", "android,firmware")) {
         return;
@@ -1379,7 +1391,8 @@ static void ProcessKernelDt() {
         android::base::ReadFileToString(file_name, &dt_file);
         std::replace(dt_file.begin(), dt_file.end(), ',', '.');
 
-        InitPropertySet("ro.boot."s + dp->d_name, dt_file);
+        InitPropertySet("ro.boot."s + dp->d_name,
+                         IchthysOverrideBootProp(dp->d_name, dt_file));
     }
 }
 
@@ -1388,7 +1401,8 @@ constexpr auto ANDROIDBOOT_PREFIX = "androidboot."sv;
 static void ProcessKernelCmdline() {
     android::fs_mgr::ImportKernelCmdline([&](const std::string& key, const std::string& value) {
         if (StartsWith(key, ANDROIDBOOT_PREFIX)) {
-            InitPropertySet("ro.boot." + key.substr(ANDROIDBOOT_PREFIX.size()), value);
+            auto prop = key.substr(ANDROIDBOOT_PREFIX.size());
+            InitPropertySet("ro.boot." + prop, IchthysOverrideBootProp(prop, value));
         }
     });
 }
@@ -1397,7 +1411,8 @@ static void ProcessKernelCmdline() {
 static void ProcessBootconfig() {
     android::fs_mgr::ImportBootconfig([&](const std::string& key, const std::string& value) {
         if (StartsWith(key, ANDROIDBOOT_PREFIX)) {
-            InitPropertySet("ro.boot." + key.substr(ANDROIDBOOT_PREFIX.size()), value);
+            auto prop = key.substr(ANDROIDBOOT_PREFIX.size());
+            InitPropertySet("ro.boot." + prop, IchthysOverrideBootProp(prop, value));
         }
     });
 }
