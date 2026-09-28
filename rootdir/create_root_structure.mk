@@ -40,8 +40,11 @@ LOCAL_POST_INSTALL_CMD := mkdir -p $(addprefix $(TARGET_ROOT_OUT)/, \
 # sideload, blocking `adb reboot` out of recovery. When PRODUCT_ADB_KEYS is set, embed a REAL
 # adb_keys file in the ramdisk root so recovery adb is authorized too; otherwise keep the stock
 # symlink into /product.
-ifneq ($(strip $(PRODUCT_ADB_KEYS)),)
-LOCAL_POST_INSTALL_CMD += ; cp -f $(PRODUCT_ADB_KEYS) $(TARGET_ROOT_OUT)/adb_keys
+# ICHTHYS_RECOVERY_ADB_KEYS survives RELEASE_BUILD_PURGE_PRODUCT_ADB_KEYS (which empties
+# PRODUCT_ADB_KEYS) and is only embedded in the ramdisk, never in /product.
+ICHTHYS_ROOT_ADB_KEYS := $(firstword $(PRODUCT_ADB_KEYS) $(wildcard $(ICHTHYS_RECOVERY_ADB_KEYS)))
+ifneq ($(strip $(ICHTHYS_ROOT_ADB_KEYS)),)
+LOCAL_POST_INSTALL_CMD += ; rm -f $(TARGET_ROOT_OUT)/adb_keys; cp -f $(ICHTHYS_ROOT_ADB_KEYS) $(TARGET_ROOT_OUT)/adb_keys
 else
 LOCAL_POST_INSTALL_CMD += ; ln -sf /product/etc/security/adb_keys $(TARGET_ROOT_OUT)/adb_keys
 endif
@@ -62,7 +65,7 @@ ALL_ROOTDIR_SYMLINKS := \
   $(TARGET_ROOT_OUT)/sdcard \
 
 # IchthysOS: only track /adb_keys as a symlink when we didn't embed a real key file above.
-ifeq ($(strip $(PRODUCT_ADB_KEYS)),)
+ifeq ($(strip $(ICHTHYS_ROOT_ADB_KEYS)),)
 ALL_ROOTDIR_SYMLINKS += $(TARGET_ROOT_OUT)/adb_keys
 endif
 
