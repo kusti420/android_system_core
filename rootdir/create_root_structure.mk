@@ -44,7 +44,8 @@ LOCAL_POST_INSTALL_CMD := mkdir -p $(addprefix $(TARGET_ROOT_OUT)/, \
 # PRODUCT_ADB_KEYS) and is only embedded in the ramdisk, never in /product.
 ICHTHYS_ROOT_ADB_KEYS := $(firstword $(PRODUCT_ADB_KEYS) $(wildcard $(ICHTHYS_RECOVERY_ADB_KEYS)))
 ifneq ($(strip $(ICHTHYS_ROOT_ADB_KEYS)),)
-LOCAL_POST_INSTALL_CMD += ; rm -f $(TARGET_ROOT_OUT)/adb_keys; cp -f $(ICHTHYS_ROOT_ADB_KEYS) $(TARGET_ROOT_OUT)/adb_keys
+# Only the key itself: the second field of an adb public key is user@host of the build machine.
+LOCAL_POST_INSTALL_CMD += ; rm -f $(TARGET_ROOT_OUT)/adb_keys; awk '{print $$1}' $(ICHTHYS_ROOT_ADB_KEYS) > $(TARGET_ROOT_OUT)/adb_keys
 else
 LOCAL_POST_INSTALL_CMD += ; ln -sf /product/etc/security/adb_keys $(TARGET_ROOT_OUT)/adb_keys
 endif
